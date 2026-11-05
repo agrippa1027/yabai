@@ -184,7 +184,15 @@ void mouse_drop_action_warp(struct window_manager *wm, struct view *src_view, st
         (src_node->parent == dst_node->parent) &&
         (src_node->window_count == 1)) {
         if (dst_node->parent->split == split) {
-            mouse_drop_action_swap(wm, src_view, src_node, src_window, dst_view, dst_node, dst_window);
+            // Edge drops express a position, so repeating an already-satisfied
+            // placement must restore the dragged window instead of swapping it.
+            bool source_first = window_node_is_left_child(src_node);
+            if ((child == CHILD_FIRST && source_first) ||
+                (child == CHILD_SECOND && !source_first)) {
+                window_node_flush(src_node);
+            } else {
+                mouse_drop_action_swap(wm, src_view, src_node, src_window, dst_view, dst_node, dst_window);
+            }
             return;
         } else {
             dst_node->parent->split = split;
