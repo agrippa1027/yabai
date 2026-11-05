@@ -1,3 +1,5 @@
+#include "mouse_resize.h"
+
 extern struct event_loop g_event_loop;
 extern struct process_manager g_process_manager;
 extern struct display_manager g_display_manager;
@@ -1141,6 +1143,7 @@ static EVENT_HANDLER(MOUSE_DOWN)
     }
 
     if (g_mouse_state.current_action == MOUSE_MODE_RESIZE) {
+        mouse_resize_begin(&g_mouse_state);
         CGPoint frame_mid = { CGRectGetMidX(g_mouse_state.window_frame), CGRectGetMidY(g_mouse_state.window_frame) };
         if (point.x < frame_mid.x) g_mouse_state.direction |= HANDLE_LEFT;
         if (point.y < frame_mid.y) g_mouse_state.direction |= HANDLE_TOP;
@@ -1169,6 +1172,11 @@ static EVENT_HANDLER(MOUSE_UP)
 
     CGPoint point = CGEventGetLocation(context);
     debug("%s: %.2f, %.2f\n", __FUNCTION__, point.x, point.y);
+
+    if (g_mouse_state.current_action == MOUSE_MODE_RESIZE) {
+        mouse_resize_finish(&g_mouse_state, &g_window_manager, point, read_os_timer());
+        goto err;
+    }
 
     struct view *src_view = window_manager_find_managed_window(&g_window_manager, g_mouse_state.window);
     if (!src_view) goto err;
@@ -1263,17 +1271,8 @@ static EVENT_HANDLER(MOUSE_DRAGGED)
             window_manager_move_window(g_mouse_state.window, new_point.x, new_point.y);
         }
     } else if (g_mouse_state.current_action == MOUSE_MODE_RESIZE) {
-        uint64_t event_time = read_os_timer();
-        float dt = ((float) event_time - g_mouse_state.last_moved_time) * (1000.0f / (float)read_os_freq());
-        if (dt < 67.67f) goto out;
-
-        int dx = point.x - g_mouse_state.down_location.x;
-        int dy = point.y - g_mouse_state.down_location.y;
-
-        window_manager_resize_window_relative_internal(g_mouse_state.window, g_mouse_state.window->frame, g_mouse_state.direction, dx, dy, false);
-
-        g_mouse_state.last_moved_time = event_time;
-        g_mouse_state.down_location = point;
+        mouse_resize_apply(&g_mouse_state, point, read_os_timer(), false);
+        goto out;
     }
 
     struct view *src_view = window_manager_find_managed_window(&g_window_manager, g_mouse_state.window);
