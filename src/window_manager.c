@@ -1,3 +1,5 @@
+#include "ax_window_probe.h"
+
 extern mach_port_t g_bs_port;
 extern uint8_t *g_event_bytes;
 extern struct event_loop g_event_loop;
@@ -1677,34 +1679,13 @@ bool window_manager_add_existing_application_windows(struct space_manager *sm, s
                     if (app_window_list_len == 0) break;
 
                     memcpy(data+0xc, &element_id, sizeof(uint64_t));
-                    AXUIElementRef element_ref = _AXUIElementCreateWithRemoteToken(data_ref);
-
-                    const void *role = NULL;
-                    AXUIElementCopyAttributeValue(element_ref, kAXRoleAttribute, &role);
-
-                    if (role) {
-                        if (CFEqual(role, kAXWindowRole)) {
-                            uint32_t element_wid = ax_window_id(element_ref);
-                            bool matched = false;
-
-                            if (element_wid != 0) {
-                                for (int i = 0; i < app_window_list_len; ++i) {
-                                    if (app_window_list[i] == element_wid) {
-                                        matched = true;
-                                        ts_buf_del(app_window_list, i);
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (matched) {
-                                window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
-                            } else {
-                                CFRelease(element_ref);
-                            }
-                        }
-
-                        CFRelease(role);
+                    int matched_index;
+                    AXUIElementRef element_ref = ax_window_probe_copy_match(data_ref, app_window_list,
+                                                                           app_window_list_len, &matched_index);
+                    if (element_ref) {
+                        uint32_t element_wid = app_window_list[matched_index];
+                        ts_buf_del(app_window_list, matched_index);
+                        window_manager_create_and_add_window(sm, wm, application, element_ref, element_wid, false);
                     }
                 }
 

@@ -364,6 +364,7 @@ static EVENT_HANDLER(APPLICATION_FRONT_SWITCHED)
         if (dt > 1500.0f) {
             CFTypeRef dummy = NULL;
             AXUIElementCopyAttributeValue(application->ref, CFSTR("__fence"), &dummy);
+            if (dummy) CFRelease(dummy);
         }
 
         if (__atomic_load_n(&__pending_window_focus, __ATOMIC_RELAXED) == false) {
